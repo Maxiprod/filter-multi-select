@@ -1,4 +1,4 @@
-/*! 
+/*!
  *  Multiple select dropdown with filter jQuery plugin.
  *  Copyright (C) 2022  Andrew Wagner  github.com/andreww1011
  *
@@ -6,24 +6,32 @@
  *  modify it under the terms of the GNU Lesser General Public
  *  License as published by the Free Software Foundation; either
  *  version 2.1 of the License, or (at your option) any later version.
- * 
+ *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  *  Lesser General Public License for more details.
- * 
+ *
  *  You should have received a copy of the GNU Lesser General Public
  *  License along with this library; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
  *  USA
  */
-:root {
-    --fms-badge-text-color: white;
-    --fms-badge-color: var(--primary)
+ :root {
+    --fms-badge-text-color: rgb(34, 33, 33);
+    --primary: #5c87b248;
+    --check: #5C87B2;
+    --secondary: #355371;
+    --fms-badge-color: var(--primary);
+    --check-color: var(--check);
+    --error: #D8000C;
+    --disabled: #e9ecef;
 }
 
 .filter-multi-select.dropup, .filter-multi-select.dropdown {
     position: relative;
+    min-width: 4rem;
+    display: inline-block;
 }
 
 .filter-multi-select .dropdown-toggle::after {
@@ -34,62 +42,81 @@
     all: unset;
 }
 
-.filter-multi-select > .dropdown-toggle::before {
-    display: inline-block;
-    margin-right: 0.255em;
-    vertical-align: middle;
-    content: "";
-    border-top: 0.3em solid;
-    border-right: 0.3em solid transparent;
-    border-bottom: 0;
-    border-left: 0.3em solid transparent;
+.filter-multi-select .dropdown-toggle .placeholder {
+    padding-left: 5px;
+    color: var(--error);
 }
 
-.filter-multi-select > .dropdown-toggle:empty::before {
-    margin-right: 0.255em;
+
+
+.filter-multi-select > .dropdown-toggle::after {
+    display: inline-block;
+    margin-left: 0.255em;
+    vertical-align: middle;
+    content: "";
+    border-top: 0.4em solid;
+    border-right: 0.4em solid transparent;
+    border-bottom: 0;
+    border-left: 0.4em solid transparent;
+}
+
+.filter-multi-select > .dropdown-toggle:empty::after {
+    margin-left: 0.255em;
 }
 
 .filter-multi-select > .viewbar {
     white-space: normal;
-    font-size: 0.875rem;
+    font-size: 1rem;
     font-weight: 400;
     height: auto;
     cursor: pointer;
 }
 
-.filter-multi-select > .viewbar > .selected-items > .item {
-    margin: .125rem .25rem .125rem 0;
-    padding: 0px 0px 0px .5em;
-    display: inline-flex;
-    height: 1.875em;
-    color: var(--fms-badge-text-color);
-    background-color: var(--fms-badge-color);
-    border-radius: 1.1em;
-    align-items: center;
-    vertical-align: baseline;
-}
+    .filter-multi-select > .viewbar > .selected-items > .item {
+        margin: -0.1rem 0.2rem -0.4rem 0;
+        padding: 0px 1.6em 0px .5em;
+        display: inline-block;
+        position: relative;
+        height: 1.6em;
+        color: var(--fms-badge-text-color);
+        background-color: var(--fms-badge-color);
+        border-radius: 4px;
+        vertical-align: baseline;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 
-.filter-multi-select > .viewbar > .selected-items > .item > button {
-    background-color: transparent;
-    color: var(--fms-badge-text-color);
-    border: 0;
-    font-weight: 900;
-    cursor: pointer;
-}
+        .filter-multi-select > .viewbar > .selected-items > .item > button {
+            background-color: transparent;
+            color: var(--fms-badge-text-color);
+            border: 0;
+            padding: 1px 4px 1px 2px;
+            cursor: pointer;
+            position: absolute;
+            right: 1px;
+        }
 
-.filter-multi-select > .viewbar > .selected-items > .item > button:hover {
-    filter: contrast(50%);
-}
+            .filter-multi-select > .viewbar > .selected-items > .item > button::before {
+                font-family: 'Font Awesome 5 Free';
+                opacity: 0.8;
+                content: "\f057";
+            }
 
-.filter-multi-select > .viewbar > .selected-items > .item.disabled {
-    display: inline-flex;
-    padding: 0px .5em 0px .5em;
-    filter: grayscale(80%) brightness(150%);
-}
+            .filter-multi-select > .viewbar > .selected-items > .item > button:hover {
+                color: var(--error);
+            }
 
-.filter-multi-select > .viewbar > .selected-items > .item.disabled > button {
-    display: none;
-}
+        .filter-multi-select > .viewbar > .selected-items > .item.disabled {
+            padding: 0px .5em 0px .5em;
+            opacity: 0.8;
+            filter: grayscale(90%);
+        }
+
+            .filter-multi-select > .viewbar > .selected-items > .item.disabled > button {
+                display: none;
+            }
 
 .filter-multi-select > .dropdown-menu {
     position: absolute;
@@ -112,32 +139,31 @@
     border-radius: 0.25rem;
 }
 
-.filter-multi-select > .dropdown-menu.show {
-    display: block;
-}
+    .filter-multi-select > .dropdown-menu.show {
+        display: block;
+    }
 
-.filter-multi-select > .dropdown-menu > .filter > input {
-    font-size: 0.875rem;
-}
+    .filter-multi-select > .dropdown-menu > .filter > input {
+        font-size: 0.875rem;
+    }
 
-.filter-multi-select > .dropdown-menu > .filter > button {
-    position: absolute;
-    border: 0;
-    background-color: transparent;
-    font-weight: 900;
-    color: #ccc;
-    right: 2rem;
-    top: 1rem;
-}
+    .filter-multi-select > .dropdown-menu > .filter > button {
+        position: absolute;
+        border: 0;
+        background-color: transparent;
+        font-weight: 900;
+        color: #ccc;
+        right: 2rem;
+        top: 1.25rem;
+    }
 
-.filter-multi-select > .dropdown-menu > .filter > button:hover {
-    color: #aaa;
-}
+        .filter-multi-select > .dropdown-menu > .filter > button:hover {
+            color: #aaa;
+        }
 
 .filter-multi-select .dropdown-item {
     display: block;
-    width: 100%;
-    padding: 0.25rem 1.5rem;
+    padding: 0.5rem 1rem;
     clear: both;
     font-weight: 400;
     color: #212529;
@@ -147,46 +173,76 @@
     border: 0;
 }
 
-.filter-multi-select .dropdown-item.disabled, .filter-multi-select .dropdown-item:disabled {
-    color: #6c757d;
-    pointer-events: none;
-    background-color: transparent;
+    .filter-multi-select .dropdown-item.disabled, .filter-multi-select .dropdown-item:disabled {
+        color: #6c757d;
+        pointer-events: none;
+        background-color: transparent;
+    }
+
+    .filter-multi-select .dropdown-item.active, .filter-multi-select .dropdown-item:active {
+        color: inherit;
+    }
+
+    .filter-multi-select .dropdown-item .custom-control-input {
+        position: absolute;
+        z-index: -1;
+        opacity: 0;
+    }
+
+    .filter-multi-select .dropdown-item .custom-control-label {
+        position: relative;
+        margin-bottom: 0;
+        vertical-align: top;
+        display: inline-block;
+        width: 100%;
+        line-height: 1.5;
+    }
+
+        .filter-multi-select .dropdown-item .custom-control-label::before {
+            border-radius: 0.25rem;
+            transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+            position: absolute;
+            top: 0.15625rem;
+            left: -1.5rem;
+            display: block;
+            width: 1rem;
+            height: 1rem;
+            pointer-events: none;
+            content: "";
+            background-color: #FFFFFF;
+            border: #adb5bd solid 1px
+        }
+
+    .filter-multi-select .dropdown-item .custom-checkbox:focus ~ .custom-control-label::before {
+        color: #495057;
+        background-color: #fff;
+        border-color: #80bdff;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgb(0 123 255 / 25%);
+    }
+
+    .filter-multi-select .dropdown-item .custom-control {
+        border-left: 1em solid transparent;
+        min-height: 1.5em;
+        position: relative;
+    }
+
+.filter-multi-select .custom-control:focus-within {
+    color: #495057;
+    background-color: #fff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgb(0 123 255 / 25%);
 }
 
-.filter-multi-select .dropdown-item:hover, .filter-multi-select .dropdown-item:focus  {
-    background-color: inherit;
+.filter-multi-select .custom-control:hover {
+    color: #495057;
+    background-color: #fff;
+    outline: 0;
+    box-shadow: rgb(0 0 0 / 15%) 0px 2px 8px;
 }
 
-.filter-multi-select .dropdown-item.active, .filter-multi-select .dropdown-item:active {
-    color: inherit;
-}
-
-.filter-multi-select .dropdown-item .custom-control-input {
-    position: absolute;
-    z-index: -1;
-    opacity: 0;
-}
-
-.filter-multi-select .dropdown-item .custom-control-label {
-    position: relative;
-    margin-bottom: 0;
-    vertical-align: top;
-    display: inline-block;   
-}
-
-.filter-multi-select .dropdown-item .custom-control-label::before {
-    border-radius: 0.25rem;
-    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-    position: absolute;
-    top: 0.15625rem;
-    left: -1.5rem;
-    display: block;
-    width: 1rem;
-    height: 1rem;
-    pointer-events: none;
-    content: "";
-    background-color: #FFFFFF;
-    border: #adb5bd solid 1px
+.custom-control-input:disabled ~ .custom-control-label {
+    color: var(--disabled);
 }
 
 .filter-multi-select .dropdown-item .custom-control-label::after {
@@ -197,26 +253,108 @@
     width: 1rem;
     height: 1rem;
     content: "";
-    background: no-repeat 50% / 50% 50%;
+    background: no-repeat 80% 80% / 70% 70%
 }
 
 .filter-multi-select .dropdown-item .custom-checkbox:checked ~ .custom-control-label::before,
 .filter-multi-select .dropdown-item .custom-checkbox:indeterminate ~ .custom-control-label::before {
-    border-color: var(--fms-badge-color);
-    background-color: var(--fms-badge-color);
+    border-color: var(--check-color);
+    background-color: var(--check-color);
 }
 
 .filter-multi-select .dropdown-item .custom-checkbox:checked:disabled ~ .custom-control-label::before,
 .filter-multi-select .dropdown-item .custom-checkbox:indeterminate:disabled ~ .custom-control-label::before {
-    border-color: var(--fms-badge-color);
-    background-color: var(--fms-badge-color);
+    border-color: var(--check-color);
+    background-color: var(--check-color);
     filter: grayscale(80%) brightness(150%);
 }
 
+.custom-control-input:disabled ~ .custom-control-label::before {
+    background-color: var(--disabled);
+}
+
 .filter-multi-select .dropdown-item .custom-checkbox:checked ~ .custom-control-label::after {
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23FFFFFF' d='M6.564.75l-3.59 3.612-1.538-1.55L0 4.26 2.974 7.25 8 2.193z'/%3e%3c/svg%3e");
+    background-image: url('SVG/check.svg');
 }
 
 .filter-multi-select .dropdown-item .custom-checkbox:indeterminate ~ .custom-control-label::after {
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 4'%3e%3cpath stroke='%23FFFFFF' d='M0 2h4'/%3e%3c/svg%3e");
+    background-image: url('SVG/indeterminate.svg');
 }
+
+.form-control {
+    display: block;
+    width: 100%;
+    padding: 0.25rem 0rem 0.25rem 0.25rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: #495057;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+}
+
+    .form-control:focus {
+        color: #495057;
+        background-color: #fff;
+        border-color: #80bdff;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgb(0 123 255 / 25%);
+    }
+
+[hidden] {
+    display: none !important
+}
+
+.p-skeleton {
+    background-color: #dee2e6;
+    border-radius: 6px;
+}
+
+.p-skeleton {
+    background-color: #dee2e6;
+    border-radius: 4px;
+    height: 1.2rem;
+    position: relative;
+    margin-top: 0.5rem;
+    left: 0;
+    z-index: 1;
+    overflow: hidden;
+}
+
+    .p-skeleton::after {
+        content: "";
+        animation: p-skeleton-animation 1.2s infinite;
+        height: 100%;
+        left: 0;
+        position: absolute;
+        right: 0;
+        top: 0;
+        transform: translateX(-100%);
+        z-index: 2;
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0));
+    }
+
+.entity-button-search {
+    border: none;
+    cursor: pointer;
+    margin-left: 8px !important;
+    vertical-align: middle;
+    background-image: url(/Content/2012.2.820/Office2010Silver/sprite.png);
+    background-color: transparent;
+    background-position: -64px -176px;
+    width: 16px;
+    height: 16px;
+}
+
+    @keyframes p-skeleton-animation {
+        0% {
+            transform: translateX(-100%)
+        }
+
+        to {
+            transform: translateX(100%)
+        }
+    }
+    /*# sourceMappingURL=bootstrap.min.css.map */
