@@ -6,6 +6,8 @@ var __extends = (this && this.__extends) || (function () {
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -36,6 +38,7 @@ var NULL_OPTION = new /** @class */ (function () {
     }
     class_1.prototype.initialize = function () { };
     class_1.prototype.select = function () { };
+    class_1.prototype["delete"] = function () { };
     class_1.prototype.deselect = function () { };
     class_1.prototype.enable = function () { };
     class_1.prototype.disable = function () { };
@@ -131,6 +134,9 @@ var FilterMultiSelect = /** @class */ (function () {
         this.name = name;
         var array = selectTarget.find('option').toArray();
         this.options = FilterMultiSelect.createOptions(this, name, array, args.items);
+        this.lastId = this.options.length;
+        this.lastLoadedAmount = -1;
+        this.maxLazyLoadedAmount = 40;
         // restrict selection
         this.numSelectedItems = 0;
         this.maxNumSelectedItems = !select.multiple ? 1 :
@@ -139,7 +145,7 @@ var FilterMultiSelect = /** @class */ (function () {
                     0; //magic number 
         var numOptions = this.options.length;
         var restrictSelection = this.maxNumSelectedItems > 0 && this.maxNumSelectedItems < numOptions;
-        this.maxNumSelectedItems = restrictSelection ? this.maxNumSelectedItems : numOptions + 1; //magic number
+        this.maxNumSelectedItems = restrictSelection ? this.maxNumSelectedItems : Math.max(numOptions, this.maxLazyLoadedAmount) + 1; //magic number
         this.selectAllOption = restrictSelection ?
             new FilterMultiSelect.RestrictedSelectAllOption(this, name, args.selectAllText) :
             new FilterMultiSelect.UnrestrictedSelectAllOption(this, name, args.selectAllText);
@@ -156,9 +162,12 @@ var FilterMultiSelect = /** @class */ (function () {
         this.items = document.createElement('div');
         this.items.append(this.selectAllOption.getListItem());
         this.options.forEach(function (o) { return _this.items.append(o.getListItem()); });
+        this.skeleton = document.createElement('div');
+        this.skeleton.className = 'dropdown-item';
+        this.skeleton.hidden = true;
         // dropdown list
         this.dropDown = document.createElement('div');
-        this.dropDown.append(this.filter, this.items);
+        this.dropDown.append(this.filter, this.skeleton, this.items);
         // placeholder
         this.placeholder = document.createElement('span');
         this.placeholder.textContent = args.placeholderText;
@@ -185,6 +194,7 @@ var FilterMultiSelect = /** @class */ (function () {
         this.filterText = '';
         this.showing = new Array();
         this.itemFocus = -2; //magic number
+        this.isSearchBox = false;
         this.initialize();
     }
     FilterMultiSelect.createOptions = function (fms, name, htmlOptions, jsOptions) {
@@ -233,6 +243,14 @@ var FilterMultiSelect = /** @class */ (function () {
         return event;
     };
     FilterMultiSelect.prototype.initialize = function () {
+        var _this = this;
+        this.skeletonLines = new Array(5);
+        for (var i = 0; i < 5; i++) {
+            var skeletonLine = document.createElement('div');
+            skeletonLine.className = 'p-skeleton p-component';
+            this.skeletonLines[i] = skeletonLine;
+        }
+        this.skeletonLines.forEach(function (o) { return _this.skeleton.append(o); });
         this.options.forEach(function (o) { return o.initialize(); });
         this.selectAllOption.initialize();
         this.filterInput.className = 'form-control';
@@ -276,7 +294,7 @@ var FilterMultiSelect = /** @class */ (function () {
             var numShown = _this.showing.length;
             switch (e.key) {
                 case "Enter":
-                    if (numShown === 1) {
+                    if (numShown >= 1) {
                         var o = _this.options[_this.showing[0]]; //magic number
                         if (!o.isDisabled()) {
                             if (o.isSelected()) {
@@ -288,6 +306,7 @@ var FilterMultiSelect = /** @class */ (function () {
                             _this.clearFilterAndRefocus();
                         }
                     }
+                    e.preventDefault();
                     break;
                 case "Escape":
                     if (_this.filterText.length > 0) {
@@ -315,44 +334,100 @@ var FilterMultiSelect = /** @class */ (function () {
             }
         }, true);
     };
-    FilterMultiSelect.prototype.updateDropdownList = function () {
+    FilterMultiSelect.prototype.setLastLoadedAmount = function (value) {
+        this.lastLoadedAmount = value;
+    };
+    FilterMultiSelect.prototype.onFiltro = function (text, selector, data) {
+        // remove opções antigas não selecionadas
+        for (var i = selector.options.length - 1; i >= 0; i--) {
+            var o = selector.options[i].getValue();
+            if (!selector.isOptionSelected(o)) {
+                selector.deleteOption(o);
+            }
+        }
+        selector.setLastLoadedAmount(data.length);
+        // Adiciona novas opções
+        for (var i = 0; i < data.length; i++) {
+            selector.addOption(data[i].Valor, data[i].Label);
+        }
+        // Filtra com as novas opções
+        selector.filtrar(text);
+    };
+    FilterMultiSelect.prototype.filtrarAsync = function (oldText) {
         var text = this.filterInput.value;
-        if (text.length > 0) {
+        if (oldText != text) {
+            return;
+        }
+        this.lazyLoadingFunction({ texto: text, itensPorLoad: this.maxLazyLoadedAmount }, this, this.onFiltro);
+    };
+    FilterMultiSelect.prototype.filtrar = function (text) {
+        var _this = this;
+        var shouldFilter = !this.isSearchBox || text.length > 0;
+        var showing = new Array();
+        this.options.forEach(function (o, i) {
+            var label = _this.caseSensitive ? o.getLabel() : o.getLabel().toLowerCase();
+            var texto = _this.caseSensitive ? text : text.toLowerCase();
+            if (label.indexOf(texto) !== -1 && shouldFilter) { //magic number 
+                o.show();
+                showing.push(i);
+            }
+            else {
+                o.hide();
+            }
+        });
+        this.setLoaded();
+        this.filterText = text;
+        this.showing = showing;
+    };
+    FilterMultiSelect.prototype.updateDropdownList = function () {
+        var _this = this;
+        var text = this.filterInput.value;
+        if (text.length > 0 || this.isSearchBox) {
             this.selectAllOption.hide();
         }
         else {
             this.selectAllOption.show();
         }
         var showing = new Array();
-        if (this.caseSensitive) {
-            this.options.forEach(function (o, i) {
-                if (o.getLabel().indexOf(text) !== -1) { //magic number
-                    o.show();
-                    showing.push(i);
-                }
-                else {
-                    o.hide();
-                }
+        if (this.isSearchBox) {
+            if (text.length >= 3 && this.filterText == text) {
+                return;
+            }
+            this.options.forEach(function (o) {
+                o.hide();
             });
+            if (text.length < 3 || this.filterText.length > text.length) {
+                this.lastLoadedAmount = -1;
+            }
+            if (text.length < 3) {
+                this.filterText = text;
+                this.showing = showing;
+                return;
+            }
+            if (this.lastLoadedAmount >= 0 && this.lastLoadedAmount < (this.maxLazyLoadedAmount * 0.8)) {
+                this.filtrar(text);
+                return;
+            }
+            this.setLoading();
+            setTimeout(function () { return _this.filtrarAsync(text); }, 500);
+            this.filterText = text;
+            this.showing = showing;
+            return;
         }
-        else {
-            this.options.forEach(function (o, i) {
-                if (o.getLabel().toLowerCase().indexOf(text.toLowerCase()) !== -1) { //magic number 
-                    o.show();
-                    showing.push(i);
-                }
-                else {
-                    o.hide();
-                }
-            });
-        }
-        this.filterText = text;
-        this.showing = showing;
+        this.filtrar(text);
+    };
+    FilterMultiSelect.prototype.setLoading = function () {
+        this.skeleton.hidden = false;
+        this.skeletonLines.forEach(function (o) { return o.style.width = (Math.random() * 60 + 40) + '%'; });
+    };
+    FilterMultiSelect.prototype.setLoaded = function () {
+        this.skeleton.hidden = true;
     };
     FilterMultiSelect.prototype.clearFilterAndRefocus = function () {
         if (DEBUG) {
             console.log('clear filter');
         }
+        this.lastLoadedAmount = -1;
         this.filterInput.value = '';
         this.updateDropdownList();
         this.refocusFilter();
@@ -632,6 +707,18 @@ var FilterMultiSelect = /** @class */ (function () {
         a = a.filter(function (o) { return o.isSelected(); });
         return a;
     };
+    FilterMultiSelect.prototype.getNoSelectedOptions = function (includeDisabled) {
+        if (includeDisabled === void 0) { includeDisabled = true; }
+        var a = this.options;
+        if (!includeDisabled) {
+            if (this.isDisabled()) {
+                return new Array();
+            }
+            a = a.filter(function (o) { return !o.isDisabled(); });
+        }
+        a = a.filter(function (o) { return !o.isSelected(); });
+        return a;
+    };
     FilterMultiSelect.prototype.getSelectedOptionsAsJson = function (includeDisabled) {
         if (includeDisabled === void 0) { includeDisabled = true; }
         var data = {};
@@ -642,6 +729,50 @@ var FilterMultiSelect = /** @class */ (function () {
             console.log(c);
         }
         return c;
+    };
+    FilterMultiSelect.prototype.getNoSelectedOptionsAsJson = function (includeDisabled) {
+        if (includeDisabled === void 0) { includeDisabled = true; }
+        var data = {};
+        var a = this.getNoSelectedOptions(includeDisabled).map(function (o) { return o.getValue(); });
+        data[this.getName()] = a;
+        var c = JSON.stringify(data, null, "  ");
+        if (DEBUG) {
+            console.log(c);
+        }
+        return c;
+    };
+    FilterMultiSelect.prototype.deleteOption = function (value) {
+        if (this.isDisabled())
+            return false;
+        var o = this.getOption(value);
+        if (!o || o.isDisabled())
+            return false;
+        var index = this.options.indexOf(o);
+        if (index > -1) {
+            this.options.splice(index, 1);
+        }
+        o.deselect();
+        o["delete"]();
+        return true;
+    };
+    FilterMultiSelect.prototype.isSearch = function () {
+        this.isSearchBox = true;
+    };
+    FilterMultiSelect.prototype.addOption = function (value, label) {
+        FilterMultiSelect.checkValue(value, label);
+        if (this.hasOption(value))
+            return false;
+        var newOp = new FilterMultiSelect.SingleOption(this, this.lastId, this.name, label, value, false, false);
+        this.lastId++;
+        newOp.initialize();
+        this.options.push(newOp);
+        newOp.initialize();
+        newOp.hide();
+        this.items.append(newOp.getListItem());
+        return true;
+    };
+    FilterMultiSelect.prototype.setFilterFunction = function (value) {
+        this.lazyLoadingFunction = value;
     };
     FilterMultiSelect.prototype.getName = function () {
         return this.name;
@@ -682,7 +813,7 @@ var FilterMultiSelect = /** @class */ (function () {
             this.div.append(this.checkbox, this.labelFor);
             this.closeButton = document.createElement('button');
             this.closeButton.type = 'button';
-            this.closeButton.innerHTML = '&times;';
+            //this.closeButton.innerHTML = '&times;';
             this.selectedItemBadge = document.createElement('span');
             this.selectedItemBadge.setAttribute('data-id', id);
             this.selectedItemBadge.textContent = label;
@@ -728,13 +859,13 @@ var FilterMultiSelect = /** @class */ (function () {
                     _this.fms.clearFilterAndRefocus();
                 }
             }, true);
-            this.checkbox.addEventListener('keyup', function (e) {
+            this.checkbox.addEventListener('keydown', function (e) {
                 if (DEBUG) {
                     _this.log('checkbox', e);
                 }
                 switch (e.key) {
                     case "Enter":
-                        e.stopPropagation();
+                        e.preventDefault();
                         _this.checkbox.dispatchEvent(new MouseEvent('click'));
                         break;
                     default:
@@ -742,7 +873,6 @@ var FilterMultiSelect = /** @class */ (function () {
                 }
             }, true);
             this.closeButton.addEventListener('click', function (e) {
-                e.stopPropagation();
                 if (_this.isDisabled() || _this.fms.isDisabled())
                     return;
                 if (DEBUG) {
@@ -760,6 +890,10 @@ var FilterMultiSelect = /** @class */ (function () {
             if (this.isDisabled())
                 return;
             this.selectNoDisabledCheck();
+            this.fms.update();
+        };
+        class_2.prototype["delete"] = function () {
+            this.div.remove();
             this.fms.update();
         };
         class_2.prototype.selectNoDisabledCheck = function () {
@@ -870,6 +1004,9 @@ var FilterMultiSelect = /** @class */ (function () {
                 .forEach(function (o) { return o.select(); });
             this.fms.update();
         };
+        class_3.prototype["delete"] = function () {
+            this.fms.update();
+        };
         class_3.prototype.deselect = function () {
             if (this.isDisabled())
                 return;
@@ -893,6 +1030,7 @@ var FilterMultiSelect = /** @class */ (function () {
         }
         class_4.prototype.initialize = function () { this.usao.initialize(); };
         class_4.prototype.select = function () { };
+        class_4.prototype["delete"] = function () { };
         class_4.prototype.deselect = function () { this.usao.deselect(); };
         class_4.prototype.enable = function () { };
         class_4.prototype.disable = function () { };
