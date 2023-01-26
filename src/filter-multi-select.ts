@@ -38,13 +38,25 @@ import FilterMultiSelect from './FilterMultiSelect';
     
 
     let filterMultiSelect = new FilterMultiSelect(target, args);
-  
+    
     const fms = $(filterMultiSelect.getRootElement());
     target.replaceWith(fms);
     
     var methods = {
         hasOption: function(value: string):boolean {
             return filterMultiSelect.hasOption(value);
+        },
+        addOption: function(label: string, value: string):boolean {
+            return filterMultiSelect.addOption(value, label);
+        },
+        setFilterFunction : function(value: Function):void {
+            return filterMultiSelect.setFilterFunction(value);
+        },
+        filtrar: function(text: string):void {
+            return filterMultiSelect.filtrar(text);
+        },
+        isSearch: function():void {
+            return filterMultiSelect.isSearch();
         },
         selectOption: function(value: string):void {
             filterMultiSelect.selectOption(value);
@@ -84,7 +96,7 @@ import FilterMultiSelect from './FilterMultiSelect';
     // store applied element
     ($.fn as any).filterMultiSelect.applied.push(methods);
 
-    return methods;
+    return filterMultiSelect;
 };
 
 // activate plugin by targeting selector
@@ -103,6 +115,8 @@ $(function () {
 
 // define the plugin's global default selector.
 ($.fn as any).filterMultiSelect.selector = undefined;
+
+($.fn as any).filterMultiSelect.multiSelector = undefined;
 
 // define the plugin's global default options.
 ($.fn as any).filterMultiSelect.args = {};
