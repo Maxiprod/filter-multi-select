@@ -546,7 +546,7 @@ export default class FilterMultiSelect {
 
     private initialize(): void {
         this.skeletonLines = new Array(5)
-        for (let i =0; i< 5; i++){
+        for (let i = 0; i < 5; i++){
             let skeletonLine = document.createElement('div');
             skeletonLine.className = 'p-skeleton p-component';
             this.skeletonLines[i] = skeletonLine;
@@ -657,8 +657,8 @@ export default class FilterMultiSelect {
 
         selector.setLastLoadedAmount(data.length);
         // Adiciona novas opções
-        for (let i = 0; i < data.length; i++) {
-            selector.addOption(data[i].Valor, data[i].Label);
+        for (let item of data) {
+            selector.addOption(item.Valor, item.Label);
         }
 
         // Filtra com as novas opções
