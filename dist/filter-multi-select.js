@@ -48,6 +48,18 @@ $.fn.filterMultiSelect = function (args) {
         hasOption: function (value) {
             return filterMultiSelect.hasOption(value);
         },
+        addOption: function (label, value) {
+            return filterMultiSelect.addOption(value, label);
+        },
+        setFilterFunction: function (value) {
+            return filterMultiSelect.setFilterFunction(value);
+        },
+        filtrar: function (text) {
+            return filterMultiSelect.filtrar(text);
+        },
+        isSearch: function () {
+            return filterMultiSelect.isSearch();
+        },
         selectOption: function (value) {
             filterMultiSelect.selectOption(value);
         },
@@ -85,7 +97,7 @@ $.fn.filterMultiSelect = function (args) {
     };
     // store applied element
     $.fn.filterMultiSelect.applied.push(methods);
-    return methods;
+    return filterMultiSelect;
 };
 // activate plugin by targeting selector
 $(function () {
@@ -101,6 +113,7 @@ $(function () {
 $.fn.filterMultiSelect.applied = new Array();
 // define the plugin's global default selector.
 $.fn.filterMultiSelect.selector = undefined;
+$.fn.filterMultiSelect.multiSelector = undefined;
 // define the plugin's global default options.
 $.fn.filterMultiSelect.args = {};
 //# sourceMappingURL=filter-multi-select.js.map

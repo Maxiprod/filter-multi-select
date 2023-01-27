@@ -36,7 +36,9 @@
 
     <!-- Load the plugin bundle. -->
     <link rel="stylesheet" href="filter_multi_select.css" />
-    <script src="filter-multi-select-bundle.min.js"></script>
+    <script src="filter-multi-select-bundle.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.8.0/css/regular.min.css">
 
     <section class="alternate page-heading">
       <div class="container">
@@ -301,16 +303,35 @@
         });
         var cities = $('#cities').filterMultiSelect({
           items: [["San Francisco","a"],
-                  ["Milan","b",false,true],
+                  ["Milan","b",false],
                   ["Singapore","c",true],
-                  ["Berlin","d",true,true],
+                  ["Berlin","d",true],
                  ],
         });
+        cities.isSearch();
+        cities.deleteOption("a");
+        console.log("hasOption", cities.hasOption("a"));
+        
+        let funcFiltrar = (text, selector) => {
+          console.log("dentro da filtrar");
+          selector.filtrar(text);
+        }
+        cities.setFilterFunction(funcFiltrar);
+        
+
+        //var aaa = cities.deleteOption("a");
+        //console.log(aaa);
         var colors = $('#colors').filterMultiSelect();
         var trees = $('#trees').filterMultiSelect({
           selectionLimit: 3,
         });
         $('#jsonbtn1').click((e) => {
+          
+        
+        console.log("Options", cities.options)
+        cities.addOption("a2", "San Francisco2");
+        console.log("hasOption", cities.hasOption("a2"));
+        console.log("Options", cities.options)
            var b = true;
            $('#jsonresult1').text(JSON.stringify(getJson(b),null,"  "));
          });

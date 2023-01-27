@@ -22,6 +22,7 @@ import $, { map } from 'jquery';
 const NULL_OPTION = new class implements Option {
     initialize(): void {}
     select(): void {}
+    delete(): void {}
     deselect(): void {}
     enable(): void {}
     disable(): void {}
@@ -42,6 +43,7 @@ const NULL_OPTION = new class implements Option {
 interface Option {
     initialize(): void;
     select(): void;
+    delete(): void;
     deselect(): void;
     enable(): void;
     disable(): void;
@@ -65,6 +67,8 @@ interface SelectAllOption extends Option {
     markSelectAllNotDisabled(): void;
     markDeselect(): void;
 }
+
+export { Option };
 
 const DEBUG = false;
 
@@ -100,7 +104,7 @@ export default class FilterMultiSelect {
             this.div.append(this.checkbox, this.labelFor);
             this.closeButton = document.createElement('button');
             this.closeButton.type = 'button';
-            this.closeButton.innerHTML = '&times;';
+            //this.closeButton.innerHTML = '&times;';
             this.selectedItemBadge = document.createElement('span');
             this.selectedItemBadge.setAttribute('data-id',id);
             this.selectedItemBadge.textContent = label;
@@ -147,13 +151,13 @@ export default class FilterMultiSelect {
                     this.fms.clearFilterAndRefocus();
                 }
             }, true);
-            this.checkbox.addEventListener('keyup', (e: KeyboardEvent) => {
+            this.checkbox.addEventListener('keydown', (e: KeyboardEvent) => {
                 if (DEBUG) {
                     this.log('checkbox',e);
                 }
                 switch (e.key) {
                     case "Enter":
-                        e.stopPropagation();
+                        e.preventDefault();
                         this.checkbox.dispatchEvent(new MouseEvent('click'));
                         break;
                     default:
@@ -161,7 +165,6 @@ export default class FilterMultiSelect {
                 }
             }, true)
             this.closeButton.addEventListener('click', (e: Event) => {
-                e.stopPropagation();
                 if (this.isDisabled() || this.fms.isDisabled()) return;
                 if (DEBUG) {
                     this.log('closeButton',e);
@@ -178,6 +181,11 @@ export default class FilterMultiSelect {
         public select(): void {
             if (this.isDisabled()) return;
             this.selectNoDisabledCheck();
+            this.fms.update();
+        }
+
+        public delete(): void{
+            this.div.remove();
             this.fms.update();
         }
 
@@ -341,7 +349,11 @@ export default class FilterMultiSelect {
                 .forEach((o) => o.select());
             this.fms.update();
         }
-    
+
+        public delete(): void{
+            this.fms.update();
+        }
+
         public deselect(): void {
             if (this.isDisabled()) return;
             this.fms.options.filter((o) => o.isSelected())
@@ -369,6 +381,7 @@ export default class FilterMultiSelect {
         
         initialize(): void {this.usao.initialize();}
         select(): void {}
+        delete(): void {}
         deselect(): void {this.usao.deselect();}
         enable(): void {}
         disable(): void {}
@@ -409,9 +422,11 @@ export default class FilterMultiSelect {
         return event;
     }
 
-    private options: Array<Option>;
+    public options: Array<Option>;
     private selectAllOption: SelectAllOption;
     private div: HTMLDivElement;
+    private skeleton: HTMLDivElement;
+    public skeletonLines: Array<HTMLDivElement>;
     private viewBar: HTMLDivElement;
     private placeholder: HTMLSpanElement;
     private selectedItems: HTMLSpanElement;
@@ -431,6 +446,12 @@ export default class FilterMultiSelect {
     private maxNumSelectedItems: number;
     private numSelectedItems: number;
     private selectionCounter: HTMLSpanElement;
+    private isSearchBox: boolean;
+    private lazyLoadingFunction: Function;
+    private lastId: number;
+    private lastLoadedAmount: number;
+    private readonly maxLazyLoadedAmount: number;
+        
 
     constructor (selectTarget: JQuery<HTMLElement>, args: Args) {        
         let t = selectTarget.get(0);
@@ -445,6 +466,9 @@ export default class FilterMultiSelect {
         this.name = name;
         let array: Array<HTMLOptionElement> = selectTarget.find('option').toArray();
         this.options = FilterMultiSelect.createOptions(this, name, array, args.items);
+        this.lastId = this.options.length;
+        this.lastLoadedAmount = -1;
+        this.maxLazyLoadedAmount = 40;
 
         // restrict selection
         this.numSelectedItems = 0;
@@ -454,7 +478,7 @@ export default class FilterMultiSelect {
                                     0; //magic number 
         const numOptions: number = this.options.length;
         const restrictSelection: boolean = this.maxNumSelectedItems > 0 && this.maxNumSelectedItems < numOptions;
-        this.maxNumSelectedItems = restrictSelection ? this.maxNumSelectedItems : numOptions + 1;  //magic number
+        this.maxNumSelectedItems = restrictSelection ? this.maxNumSelectedItems : Math.max(numOptions, this.maxLazyLoadedAmount) + 1;  //magic number
         this.selectAllOption = restrictSelection ? 
                 new FilterMultiSelect.RestrictedSelectAllOption(this, name, args.selectAllText) : 
                 new FilterMultiSelect.UnrestrictedSelectAllOption(this, name, args.selectAllText);
@@ -473,10 +497,15 @@ export default class FilterMultiSelect {
         this.items = document.createElement('div');
         this.items.append(this.selectAllOption.getListItem());
         this.options.forEach((o: Option) => this.items.append(o.getListItem()));
+        
+
+        this.skeleton = document.createElement('div');
+        this.skeleton.className = 'dropdown-item';
+        this.skeleton.hidden = true;
 
         // dropdown list
         this.dropDown = document.createElement('div');
-        this.dropDown.append(this.filter, this.items);
+        this.dropDown.append(this.filter, this.skeleton, this.items);
 
         // placeholder
         this.placeholder = document.createElement('span');
@@ -510,10 +539,20 @@ export default class FilterMultiSelect {
         this.showing = new Array<number>();
         this.itemFocus = -2; //magic number
 
+        this.isSearchBox = false;
+
         this.initialize();
     }
 
     private initialize(): void {
+        this.skeletonLines = new Array(5)
+        for (let i = 0; i < 5; i++){
+            let skeletonLine = document.createElement('div');
+            skeletonLine.className = 'p-skeleton p-component';
+            this.skeletonLines[i] = skeletonLine;
+        }
+        this.skeletonLines.forEach(o => this.skeleton.append(o));
+
         this.options.forEach(o => o.initialize());
         this.selectAllOption.initialize();
         
@@ -565,7 +604,7 @@ export default class FilterMultiSelect {
             let numShown = this.showing.length;
             switch(e.key) {
                 case "Enter":
-                    if (numShown === 1) {
+                    if (numShown >= 1) {
                         let o: Option = this.options[this.showing[0]]; //magic number
                         if (!o.isDisabled()) {
                             if (o.isSelected()) {
@@ -576,6 +615,7 @@ export default class FilterMultiSelect {
                             this.clearFilterAndRefocus();
                         }
                     }
+                    e.preventDefault();
                     break;
                 case "Escape":
                     if (this.filterText.length > 0) {
@@ -602,41 +642,120 @@ export default class FilterMultiSelect {
         }, true);
     }
 
+    public setLastLoadedAmount(value: number){
+        this.lastLoadedAmount = value;
+    }
+
+    private onFiltro(text: string, selector: FilterMultiSelect, data: {Valor: string, Label: string}[]): void{
+        // remove opções antigas não selecionadas
+        for (let i = selector.options.length - 1; i >= 0; i--) {
+            let o = selector.options[i].getValue();
+            if (!selector.isOptionSelected(o)) {
+                selector.deleteOption(o);
+            }
+        }
+
+        selector.setLastLoadedAmount(data.length);
+        // Adiciona novas opções
+        for (let item of data) {
+            selector.addOption(item.Valor, item.Label);
+        }
+
+        // Filtra com as novas opções
+        selector.filtrar(text);
+    }
+
+    private filtrarAsync(oldText: string):void {
+        let text = this.filterInput.value;
+        if (oldText != text) {
+            return;
+        }
+
+        this.lazyLoadingFunction({texto: text, itensPorLoad: this.maxLazyLoadedAmount}, this, this.onFiltro);
+    }
+
+    public filtrar (text: string): void{
+        let shouldFilter = !this.isSearchBox || text.length > 0;
+        let showing = new Array<number>();
+        this.options.forEach((o: Option, i: number) => {
+            let label = this.caseSensitive ? o.getLabel() : o.getLabel().toLowerCase();
+            let texto = this.caseSensitive ? text : text.toLowerCase();
+            if (label.indexOf(texto) !== -1 && shouldFilter) { //magic number 
+                o.show();
+                showing.push(i);
+            } else {
+                o.hide();
+            }
+        });
+
+        this.setLoaded();
+        
+        this.filterText = text;
+        this.showing = showing;
+    }
+
     private updateDropdownList(): void {
         let text = this.filterInput.value;
-        if (text.length > 0) {
+
+        if (text.length > 0 || this.isSearchBox) {
             this.selectAllOption.hide();
         } else {
             this.selectAllOption.show();
         }
         let showing = new Array<number>();
-        if (this.caseSensitive) {
-            this.options.forEach((o: Option, i: number) => {
-                if (o.getLabel().indexOf(text) !== -1) { //magic number
-                    o.show();
-                    showing.push(i);
-                } else {
-                    o.hide();
-                }
+
+        if (this.isSearchBox){
+            if (text.length >= 3 && this.filterText == text){
+                return;
+            }
+
+            this.options.forEach((o: Option) => {
+                o.hide();
             });
-        } else {
-            this.options.forEach((o: Option, i: number) => {
-                if (o.getLabel().toLowerCase().indexOf(text.toLowerCase()) !== -1 ) { //magic number 
-                    o.show();
-                    showing.push(i);
-                } else {
-                    o.hide();
-                }
-            });
+
+            if (text.length < 3 || this.filterText.length > text.length){
+                this.lastLoadedAmount = -1;
+            }
+
+            if (text.length < 3){
+                this.filterText = text;
+                this.showing = showing;
+                return;
+            }
+
+            if (this.lastLoadedAmount >= 0 && this.lastLoadedAmount < (this.maxLazyLoadedAmount * 0.8)){
+                this.filtrar(text);
+                return;
+            }
+
+            this.setLoading();
+
+            setTimeout(() => this.filtrarAsync(text), 500);
+            
+            this.filterText = text;
+            this.showing = showing;
+            return;
         }
-        this.filterText = text;
-        this.showing = showing;
+        
+        this.filtrar(text);
+    }
+
+    
+
+    private setLoading(): void {
+        this.skeleton.hidden = false;
+        this.skeletonLines.forEach(o => o.style.width = (Math.random() * 60 + 40) + '%');
+    }
+
+    private setLoaded(): void {
+        this.skeleton.hidden = true;
     }
 
     private clearFilterAndRefocus(): void {
         if (DEBUG) {
             console.log('clear filter');
         }
+        this.lastLoadedAmount = -1;
         this.filterInput.value = '';
         this.updateDropdownList();
         this.refocusFilter();
@@ -990,6 +1109,18 @@ export default class FilterMultiSelect {
         return a;
     }
 
+    private getNoSelectedOptions(includeDisabled = true): Array<Option> {
+        let a = this.options;
+        if (!includeDisabled) {
+            if (this.isDisabled()) {
+                return new Array();
+            }
+            a = a.filter((o) => !o.isDisabled());
+        }
+        a = a.filter((o) => !o.isSelected());
+        return a;
+    }
+
     public getSelectedOptionsAsJson(includeDisabled = true): string {
         const data: any = {};
         let a: Array<string> = this.getSelectedOptions(includeDisabled).map((o) => o.getValue());
@@ -999,6 +1130,52 @@ export default class FilterMultiSelect {
             console.log(c);
         }
         return c;
+    }
+
+    public getNoSelectedOptionsAsJson(includeDisabled = true): string {
+        const data: any = {};
+        let a: Array<string> = this.getNoSelectedOptions(includeDisabled).map((o) => o.getValue());
+        data[this.getName()] = a;
+        let c = JSON.stringify(data, null, "  ");
+        if (DEBUG) {
+            console.log(c);
+        }
+        return c;
+    }
+
+    public deleteOption(value: string): boolean{
+        if (this.isDisabled()) return false;
+        let o = this.getOption(value);
+        if (!o || o.isDisabled())return false;
+        
+        const index = this.options.indexOf(o);
+        if (index > -1) {
+            this.options.splice(index, 1);
+        }
+        o.deselect();
+        o.delete();
+        return true;
+    }
+
+    public isSearch(){
+        this.isSearchBox = true;
+    }
+
+    public addOption(value: string, label: string): boolean{
+        FilterMultiSelect.checkValue(value, label);
+        if (this.hasOption(value)) return false;
+        let newOp = new FilterMultiSelect.SingleOption(this, this.lastId, this.name, label, value, false, false);
+        this.lastId++;
+        newOp.initialize();
+        this.options.push(newOp);
+        newOp.initialize();
+        newOp.hide();
+        this.items.append(newOp.getListItem());
+        return true;
+    }
+
+    public setFilterFunction(value: Function): void{
+        this.lazyLoadingFunction = value;
     }
 
     public getName(): string {
